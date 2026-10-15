@@ -128,3 +128,10 @@ Tipo `digital`: PDF guardado en `files/` (fuera de `public/`) y entregado solo p
 ## 12. Persistencia y correo (gratis)
 - Base de datos: **Neon Free** (Postgres, sin vencimiento; 1 GB por proyecto, 100 CU-h/mes, se suspende a los 5 min sin uso). Los PDF se guardan en Postgres (bytea), así que no hace falta almacenamiento de objetos para pocas partituras. Se descartó Render Postgres Free porque vence a los 30 días y se borra 14 días después.
 - Correo: **Brevo Free** por API HTTP (300 correos/día, sin tarjeta; permite remitente verificado sin dominio). Resend Free (100/día, 3.000/mes) requiere dominio propio. Gmail SMTP no funciona desde Render free (puertos SMTP bloqueados).
+
+## 13. Yappy (precio menor sin comisión de tarjeta)
+- Precio con Yappy = precio con tarjeta − comisión de tarjeta (`CARD_FEE_PCT`=3.75, `CARD_FEE_FIXED`=0.50; también se puede fijar por proyecto). Son valores **ESTIMADOS** hasta que BG confirme; con `CARD_FEE_CONFIRMED=1` deja de decir "estimado".
+- Yappy cobra al comercio 1% + ITBMS por transacción (mínimo $0.02), según la página de ayuda de Yappy Comercial. Ese cargo no se le pasa al cliente.
+- Solo se ofrece para pago único, donación y producto digital. En suscripciones no, porque la documentación del Botón de Pago no menciona cobros recurrentes.
+- Adaptador real (`src/adapters/yappy.js`, esqueleto): `payments/validate/merchant` → `payments/payment-wc` → web component oficial → IPN GET.
+- Requisitos con cuenta personal: ser mayor de edad, tener cuenta de ahorros en BG y redes sociales del negocio; si eres extranjero, aviso de operación. Afiliación en Yappy Comercial.

@@ -4,6 +4,8 @@ const { db, save, init: initDb, close: closeDb, backend: dbBackend } = require('
 const digital = require('./digital');
 const processor = require('./adapters/' + (process.env.PROCESSOR || 'mock'));
 const mailer = require('./mailer');
+const fees = require('./fees');
+const yappy = require('./adapters/' + (process.env.YAPPY || 'yappy-mock'));
 const app = express();
 app.use(express.urlencoded({ extended: true, limit: '30mb' })); app.use(express.json());
 app.set('trust proxy', 'loopback');
@@ -103,7 +105,7 @@ app.post('/api/projects', async (req, res) => {
   if (!name || !TYPES[type] || !merchant_id) return res.status(400).json({ error: 'name, type y merchant_id son obligatorios' });
   let slug = slugify(name); if (db.projects.find(p => p.slug === slug)) slug += '-' + crypto.randomBytes(2).toString('hex');
   const p = { id: crypto.randomUUID(), slug, name, type, amount: amount ? Number(amount) : null,
-    free_amount: type !== 'digital' && (free_amount === 'on' || free_amount === true || !amount), author: author || null, seller: seller ? slugify(seller) : null, merchant_id, webhook_url: webhook_url || null,
+    free_amount: type !== 'digital' && (free_amount === 'on' || free_amount === true || !amount), card_fee_pct: req.body.card_fee_pct !== undefined && req.body.card_fee_pct !== '' ? Number(req.body.card_fee_pct) : null, card_fee_fixed: req.body.card_fee_fixed !== undefined && req.body.card_fee_fixed !== '' ? Number(req.body.card_fee_fixed) : null, author: author || null, seller: seller ? slugify(seller) : null, merchant_id, webhook_url: webhook_url || null,
     webhook_secret: 'whsec_' + crypto.randomBytes(16).toString('hex'), created_at: new Date().toISOString() };
   if (type === 'digital') { try { p.file = await digital.saveProductFile(p.id, file_b64); p.preview = await digital.makePreview(p.file); } catch (e) { return res.status(400).json({ error: e.message }); } }
   db.projects.push(p); save();
@@ -124,7 +126,7 @@ app.get('/admin', (req, res) => {
     const pp = ok.filter(x => x.project_id === p.id);
     const subs = db.subscriptions.filter(s => s.project_id === p.id && s.status === 'active').length;
     return `<div class="card proj"><div class="row"><b>${esc(p.name)}</b><span class="tag">${TYPES[p.type]}</span></div>
-      <div class="muted">Cuenta destino: <code>${esc(p.merchant_id)}</code> · Monto: ${p.amount ? money(p.amount) : 'libre'}</div>
+      <div class="muted">Cuenta destino: <code>${esc(p.merchant_id)}</code> · Monto: ${p.amount ? money(p.amount) : 'libre'}${fees.yappyAllowed(p) && p.amount ? ` · Yappy: ${money(fees.yappyPrice(p.amount, p).price)}` : ''} · comisión tarjeta ${fees.cardFee(p).pct}% + ${money(fees.cardFee(p).fixed)}${fees.cardFee(p).estimate ? ' (estimada)' : ''}</div>
       <div class="muted">Recaudado: <b>${money(sum(pp))}</b> · ${pp.length} pago(s)${p.type === 'subscription' ? ` · ${subs} suscriptor(es) activos` : ''}</div>
       <label>Link</label><input readonly value="${esc(BASE)}/p/${esc(p.slug)}">
       <label>Botón para pegar</label><textarea readonly rows="2">&lt;script src="${esc(BASE)}/button.js" data-project="${esc(p.slug)}"&gt;&lt;/script&gt;</textarea>
@@ -158,6 +160,7 @@ app.get('/admin', (req, res) => {
     <label>Autor del arreglo (sale en la marca de agua)</label><input name="author" placeholder="Tu nombre artístico">
     <label>Tienda (para /tienda/&lt;nombre&gt;)</label><input name="seller" placeholder="mitienda"></fieldset>
     <script>document.getElementById('pdf').onchange=e=>{const r=new FileReader();r.onload=()=>document.getElementById('file_b64').value=r.result;r.readAsDataURL(e.target.files[0])}</script>
+    <label>Comisión de tarjeta para este proyecto (vacío = global ${fees.cardFee({}).pct}% + ${money(fees.cardFee({}).fixed)}, ESTIMADA)</label><div class="two"><input name="card_fee_pct" type="number" step="0.01" placeholder="% ej. 3.75"><input name="card_fee_fixed" type="number" step="0.01" placeholder="fijo ej. 0.50"></div>
     <label>Webhook del proyecto (opcional)</label><input name="webhook_url" placeholder="https://miapp.com/pagos/webhook">
     <button class="btn">Crear proyecto</button></form></main>`));
 });
@@ -201,6 +204,7 @@ app.get('/p/:slug', (req, res) => {
   const p = db.projects.find(x => x.slug === req.params.slug);
   if (!p) return res.status(404).send(layout('Link no válido', '<main class="co"><div class="card center"><h1>Este link no es válido</h1></div></main>'));
   const amt = p.amount || 5, sub = p.type === 'subscription';
+  const showYappy = fees.yappyAllowed(p), y = fees.yappyPrice(amt, p), fee = fees.cardFee(p);
   const w = processor.capabilities?.wallets || [];
   const amountField = p.free_amount ? `<label for="amount">¿Cuánto quieres dar? (USD)</label><input id="amount" name="amount" type="number" step="0.01" min="1" value="${amt}" inputmode="decimal">` : `<input type="hidden" name="amount" value="${amt}">`;
   // Botones OFICIALES: Google Pay vía pay.js createButton (Google) y Apple Pay vía <apple-pay-button> (SDK oficial de Apple).
@@ -213,7 +217,7 @@ app.get('/p/:slug', (req, res) => {
     document.getElementById('gpay')?.appendChild(c.createButton({buttonColor:'black',buttonType:'pay',buttonLocale:'es',buttonSizeMode:'fill',buttonRadius:12,onClick:e=>{e.preventDefault();payWith('google_pay')}}))}</script>
   <script async src="https://pay.google.com/gp/p/js/pay.js" onload="onGooglePayLoaded()"></script>` : '';
   res.send(layout('Pago', `<main class="co">
-  <div class="card center"><div class="concept">${esc(p.name)}</div><div class="big" id="total">${money(amt)}</div><div class="muted">${sub ? 'cada mes' : p.type === 'donation' ? 'donación' : p.type === 'digital' ? 'PDF · descarga inmediata' : 'pago único'}</div>${p.preview ? `<img class="preview" src="/preview/${esc(p.slug)}.png" alt="Vista previa de la primera página">` : ''}</div>
+  <div class="card center"><div class="concept">${esc(p.name)}</div>${showYappy ? '<div class="muted small">Con tarjeta</div>' : ''}<div class="big" id="total">${money(amt)}</div><div class="muted">${sub ? 'cada mes' : p.type === 'donation' ? 'donación' : p.type === 'digital' ? 'PDF · descarga inmediata' : 'pago único'}</div>${showYappy ? `<a class="yappy" id="yappyLink" href="/p/${esc(p.slug)}/yappy?amount=${amt}"><span class="ytxt">Pagar con <b>Yappy</b></span><span class="yprice"><b id="yprice">${money(y.price)}</b><small id="ysave">ahorras ${money(y.savings)}</small></span></a><p class="muted small">Con Yappy no hay comisión de tarjeta${fee.estimate ? ' (ahorro estimado)' : ''}.</p>` : ''}${p.preview ? `<img class="preview" src="/preview/${esc(p.slug)}.png" alt="Vista previa de la primera página">` : ''}</div>
   <form class="card" method="post" action="/p/${esc(p.slug)}/pay" autocomplete="on">
     ${amountField}
     ${wallets}
@@ -224,7 +228,7 @@ app.get('/p/:slug', (req, res) => {
     <button class="btn full">${VERB[p.type]} <span id="btnamt">${money(amt)}</span></button>
     <p class="muted small center">🔒 Pago seguro.${sub ? ' Se cobra solo cada mes. Puedes cancelar cuando quieras.' : ''}</p>
   </form></main>
-  <script>const a=document.getElementById('amount');a&&a.addEventListener('input',()=>{const s='$'+Number(a.value||0).toFixed(2);document.getElementById('total').textContent=s;document.getElementById('btnamt').textContent=s})</script>${walletJs}`));
+  <script>const a=document.getElementById('amount');a&&a.addEventListener('input',()=>{const s='$'+Number(a.value||0).toFixed(2);document.getElementById('total').textContent=s;document.getElementById('btnamt').textContent=s;const yl=document.getElementById('yappyLink');if(yl){const v=Number(a.value||0),f=Math.round((v*${fee.pct}/100+${fee.fixed})*100)/100,yp=Math.max(0,Math.round((v-f)*100)/100);document.getElementById('yprice').textContent='$'+yp.toFixed(2);document.getElementById('ysave').textContent='ahorras $'+(v-yp).toFixed(2);yl.href='/p/${esc(p.slug)}/yappy?amount='+v}})</script>${walletJs}`));
 });
 
 app.post('/p/:slug/pay', async (req, res) => {
@@ -238,9 +242,13 @@ app.post('/p/:slug/pay', async (req, res) => {
   const email = req.body.email || (wallet ? `cliente-${wallet}@simulacion.local` : '');
   if (!email) return back('Escribe tu correo para enviarte el recibo');
   const r = await processor.authorize({ card: req.body.cardnumber, wallet, amount, project: p });
+  return completePayment(req, res, p, { amount, email, buyer: req.body.buyer, r, wallet, method: wallet || 'card' });
+});
+
+async function completePayment(req, res, p, { amount, email, buyer, r, wallet, method }) {
   const pay = { id: crypto.randomUUID(), project_id: p.id, project_name: p.name, merchant_id: p.merchant_id, amount, email,
-    status: r.status, transaction_id: r.transactionId || null, last4: r.last4 || null, brand: r.brand || null, wallet,
-    processor: processor.name, created_at: new Date().toISOString() };
+    status: r.status, transaction_id: r.transactionId || null, last4: r.last4 || null, brand: r.brand || null, wallet, method,
+    processor: method === 'yappy' ? yappy.name : processor.name, created_at: new Date().toISOString() };
   db.payments.push(pay);
   let sub = null;
   if (r.status === 'approved' && p.type === 'subscription') {
@@ -252,13 +260,49 @@ app.post('/p/:slug/pay', async (req, res) => {
   save();
   notifyProject(p, 'payment.' + r.status, { payment_id: pay.id, amount, email, subscription_id: sub?.id || null });
   let dl = null;
-  if (r.status === 'approved' && p.type === 'digital') { pay.buyer = req.body.buyer || email; dl = digital.createDownload(db, pay); save(); }
+  if (r.status === 'approved' && p.type === 'digital') { pay.buyer = buyer || email; dl = digital.createDownload(db, pay); save(); }
   if (r.status === 'approved') sendReceipt(p, pay, sub, dl);
   const ok = r.status === 'approved';
   res.send(layout(ok ? 'Pago listo' : 'Pago no realizado', `<main class="co"><div class="card center result">
     <div class="icon ${ok ? 'ok' : 'ko'}">${ok ? '✓' : '✕'}</div><h1>${ok ? '¡Pago listo!' : 'El pago no se hizo'}</h1>
     ${ok ? `<p class="big">${money(amount)}</p><p>${esc(p.name)}</p><p class="muted">El recibo llegará a ${esc(email)}.${sub ? ' El próximo cobro será en un mes.' : ''}</p>${dl ? `<a class="btn full" href="${dlUrl(dl)}">Descargar PDF</a><p class="muted small">También te lo enviamos por correo. El link vence el ${fdate(dl.expires_at)} y permite ${dl.max} descargas.</p>` : ''}<p class="muted small">Comprobante: ${esc(pay.transaction_id)}</p>${dl ? '' : '<p class="muted small">Ya puedes cerrar esta página.</p>'}`
-         : `<p>No se cobró nada. Revisa los datos de tu tarjeta o usa otra.</p><a class="btn full" href="/p/${esc(p.slug)}">Intentar de nuevo</a>`}</div></main>`));
+         : `<p>No se cobró nada. ${method === 'yappy' ? 'El pago no se aprobó en Yappy.' : 'Revisa los datos de tu tarjeta o usa otra.'}</p><a class="btn full" href="/p/${esc(p.slug)}">Intentar de nuevo</a>`}</div></main>`));
+}
+
+// ---------- Yappy (flujo simulado detrás de la interfaz yappy.createOrder/resolve) ----------
+app.use('/p/:slug/yappy', rateLimit('y', 30, 10 * 60 * 1000));
+const yappyProject = req => { const p = db.projects.find(x => x.slug === req.params.slug); return p && fees.yappyAllowed(p) ? p : null; };
+const cardAmount = (p, v) => p.free_amount ? Number(v) : p.amount;
+app.get('/p/:slug/yappy', (req, res) => {
+  const p = yappyProject(req); if (!p) return res.status(404).send(layout('No disponible', '<main class="co"><div class="card center"><h1>Yappy no está disponible para este pago</h1></div></main>'));
+  const ca = cardAmount(p, req.query.amount); if (!(ca >= 1)) return res.redirect('/p/' + p.slug);
+  const y = fees.yappyPrice(ca, p);
+  res.send(layout('Pagar con Yappy', `<main class="co"><div class="card center"><div class="concept">${esc(p.name)}</div><div class="muted small">Con Yappy</div><div class="big">${money(y.price)}</div><div class="muted">Ahorras ${money(y.savings)} · con tarjeta ${money(ca)}</div></div>
+  <form class="card" method="post"><input type="hidden" name="amount" value="${esc(ca)}">
+    <label for="phone">Tu número de Yappy</label><input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" required pattern="6[0-9]{3}-?[0-9]{4}" placeholder="6000-0000">
+    ${p.type === 'digital' ? '<label for="buyer">Tu nombre</label><input id="buyer" name="buyer" autocomplete="name" required placeholder="Nombre y apellido">' : ''}
+    <label for="email">Tu correo (para el recibo)</label><input id="email" name="email" type="email" autocomplete="email" required placeholder="tu@correo.com">
+    <button class="btn full ybtn">Pagar ${money(y.price)} con Yappy</button>
+    <p class="muted small center">Te llegará una solicitud a tu app de Yappy para aprobar el pago.</p>
+    <p class="center"><a class="muted small" href="/p/${esc(p.slug)}">Volver y pagar con tarjeta</a></p></form></main>`));
+});
+app.post('/p/:slug/yappy', async (req, res) => {
+  const p = yappyProject(req); if (!p) return res.status(404).end();
+  const ca = cardAmount(p, req.body.amount), phone = String(req.body.phone || '').replace(/\D/g, '');
+  if (!(ca >= 1) || !/^6\d{7}$/.test(phone) || !req.body.email) return res.status(400).send(layout('Error', `<main class="co"><div class="card center"><h1>Revisa tu número de Yappy y tu correo</h1><a class="btn full" href="/p/${esc(p.slug)}/yappy?amount=${esc(ca)}">Volver</a></div></main>`));
+  const y = fees.yappyPrice(ca, p);
+  const o = await yappy.createOrder({ amount: y.price, phone, project: p });
+  o.email = req.body.email; o.buyer = req.body.buyer; o.card_amount = ca;
+  res.send(layout('Aprueba en Yappy', `<main class="co"><div class="card center"><div class="concept">${esc(p.name)}</div><div class="big">${money(y.price)}</div>
+    <div class="spinner"></div><h1>Abre tu app de Yappy</h1><p>Enviamos la solicitud de pago al <b>${phone.slice(0, 4)}-${phone.slice(4)}</b>. Apruébala para terminar.</p><p class="muted small">Orden ${esc(o.id)}</p></div>
+    ${yappy.name === 'yappy-mock' ? `<form class="card center" method="post" action="/p/${esc(p.slug)}/yappy/${esc(o.id)}"><input type="hidden" name="k" value="${o.secret}"><p class="muted small">SIMULACIÓN: así respondería la app de Yappy</p>
+      <button class="btn full ybtn" name="r" value="ok">Aprobar en Yappy (simulación)</button><button class="btn full ghost" name="r" value="no">Rechazar (simulación)</button></form>` : ''}</main>`));
+});
+app.post('/p/:slug/yappy/:order', async (req, res) => {
+  const p = yappyProject(req), o = yappy.getOrder(req.params.order);
+  if (!p || !o || o.project_id !== p.id || String(req.body.k || '').length !== 32 || !crypto.timingSafeEqual(Buffer.from(String(req.body.k)), Buffer.from(o.secret))) return res.status(404).end();
+  const r = await yappy.resolve(o.id, req.body.r === 'ok'); if (!r) return res.redirect('/p/' + p.slug);
+  return completePayment(req, res, p, { amount: o.amount, email: o.email, buyer: o.buyer, r, wallet: null, method: 'yappy' });
 });
 
 // ---------- Descarga segura ----------
