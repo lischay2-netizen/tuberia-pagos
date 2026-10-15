@@ -27,5 +27,8 @@ fieldset.dig{border:1.5px dashed #ccc;border-radius:12px;margin-top:14px}
 .preview{display:block;width:60%;max-width:220px;margin:14px auto 0;border:1px solid #ddd;border-radius:8px}
 .yappy{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:16px;padding:14px 18px;border-radius:14px;background:#0a2d6e;color:#fff;text-decoration:none}
 .yappy .ytxt{font-size:18px}.yappy .yprice{text-align:right;display:flex;flex-direction:column}.yappy .yprice b{font-size:22px}.yappy small{color:#9fe1b0;font-weight:600}
-.btn.ybtn{background:#0a2d6e}.btn.ghost{background:#eee;color:#333;margin-top:10px}
+.btn.ybtn{background:#1677d6}.btn.ghost{background:#eee;color:#333;margin-top:10px}
 .spinner{width:42px;height:42px;border:4px solid #e3e8f3;border-top-color:#0a2d6e;border-radius:50%;margin:16px auto;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+.yprice-line{margin-top:16px;font-size:16px}.yprice-line b{font-size:20px}.ysave{color:#0a8a3a;font-weight:700}
+.ywrap{margin-top:8px}.ywrap btn-yappy{display:none}.ywrap.wc-ok btn-yappy{display:block}.ywrap.wc-ok .yappy-fallback{display:none}
+.yappy-fallback{display:flex;align-items:center;justify-content:center;gap:10px;height:52px;border-radius:999px;background:#1677d6;color:#fff;font-weight:700;font-size:17px;text-decoration:none}

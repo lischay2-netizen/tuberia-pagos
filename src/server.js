@@ -15,7 +15,7 @@ app.use((req, res, next) => {
   res.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer',
     'Strict-Transport-Security': 'max-age=31536000', 'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(self "https://pay.google.com")',
     'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://pay.google.com https://applepay.cdn-apple.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://google.com https://pay.google.com https://*.google.com https://applepay.cdn-apple.com; font-src 'self' https://applepay.cdn-apple.com https://fonts.gstatic.com; frame-src https://pay.google.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'" });
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://pay.google.com https://applepay.cdn-apple.com https://bt-cdn.yappy.cloud; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self' https://bt-cdn.yappy.cloud https://apipagosbg.bgeneral.cloud https://google.com https://pay.google.com https://*.google.com https://applepay.cdn-apple.com; font-src 'self' data: https://fonts.gstatic.com https://bt-cdn.yappy.cloud https://applepay.cdn-apple.com https://fonts.gstatic.com; frame-src https://pay.google.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'" });
   res.removeHeader('X-Powered-By'); next();
 });
 // Límite simple de peticiones por IP (en memoria)
@@ -217,7 +217,9 @@ app.get('/p/:slug', (req, res) => {
     document.getElementById('gpay')?.appendChild(c.createButton({buttonColor:'black',buttonType:'pay',buttonLocale:'es',buttonSizeMode:'fill',buttonRadius:12,onClick:e=>{e.preventDefault();payWith('google_pay')}}))}</script>
   <script async src="https://pay.google.com/gp/p/js/pay.js" onload="onGooglePayLoaded()"></script>` : '';
   res.send(layout('Pago', `<main class="co">
-  <div class="card center"><div class="concept">${esc(p.name)}</div>${showYappy ? '<div class="muted small">Con tarjeta</div>' : ''}<div class="big" id="total">${money(amt)}</div><div class="muted">${sub ? 'cada mes' : p.type === 'donation' ? 'donación' : p.type === 'digital' ? 'PDF · descarga inmediata' : 'pago único'}</div>${showYappy ? `<a class="yappy" id="yappyLink" href="/p/${esc(p.slug)}/yappy?amount=${amt}"><span class="ytxt">Pagar con <b>Yappy</b></span><span class="yprice"><b id="yprice">${money(y.price)}</b><small id="ysave">ahorras ${money(y.savings)}</small></span></a><p class="muted small">Con Yappy no hay comisión de tarjeta${fee.estimate ? ' (ahorro estimado)' : ''}.</p>` : ''}${p.preview ? `<img class="preview" src="/preview/${esc(p.slug)}.png" alt="Vista previa de la primera página">` : ''}</div>
+  <div class="card center"><div class="concept">${esc(p.name)}</div>${showYappy ? '<div class="muted small">Con tarjeta</div>' : ''}<div class="big" id="total">${money(amt)}</div><div class="muted">${sub ? 'cada mes' : p.type === 'donation' ? 'donación' : p.type === 'digital' ? 'PDF · descarga inmediata' : 'pago único'}</div>${showYappy ? `<div class="yprice-line">Con Yappy <b id="yprice">${money(y.price)}</b> · <span class="ysave" id="ysave">ahorras ${money(y.savings)}</span></div>
+  <div class="ywrap"><btn-yappy id="ybtn" theme="blue" rounded="true"></btn-yappy>
+  <a class="yappy-fallback" id="yappyLink" href="/p/${esc(p.slug)}/yappy?amount=${amt}">Pagar con <img src="/yappy-logo-blanco.svg" alt="Yappy" height="26"></a></div><p class="muted small">Con Yappy no hay comisión de tarjeta${fee.estimate ? ' (ahorro estimado)' : ''}.</p>` : ''}${p.preview ? `<img class="preview" src="/preview/${esc(p.slug)}.png" alt="Vista previa de la primera página">` : ''}</div>
   <form class="card" method="post" action="/p/${esc(p.slug)}/pay" autocomplete="on">
     ${amountField}
     ${wallets}
@@ -228,7 +230,10 @@ app.get('/p/:slug', (req, res) => {
     <button class="btn full">${VERB[p.type]} <span id="btnamt">${money(amt)}</span></button>
     <p class="muted small center">🔒 Pago seguro.${sub ? ' Se cobra solo cada mes. Puedes cancelar cuando quieras.' : ''}</p>
   </form></main>
-  <script>const a=document.getElementById('amount');a&&a.addEventListener('input',()=>{const s='$'+Number(a.value||0).toFixed(2);document.getElementById('total').textContent=s;document.getElementById('btnamt').textContent=s;const yl=document.getElementById('yappyLink');if(yl){const v=Number(a.value||0),f=Math.round((v*${fee.pct}/100+${fee.fixed})*100)/100,yp=Math.max(0,Math.round((v-f)*100)/100);document.getElementById('yprice').textContent='$'+yp.toFixed(2);document.getElementById('ysave').textContent='ahorras $'+(v-yp).toFixed(2);yl.href='/p/${esc(p.slug)}/yappy?amount='+v}})</script>${walletJs}`));
+  <script>const a=document.getElementById('amount');a&&a.addEventListener('input',()=>{const s='$'+Number(a.value||0).toFixed(2);document.getElementById('total').textContent=s;document.getElementById('btnamt').textContent=s;const yl=document.getElementById('yappyLink');if(yl){const v=Number(a.value||0),f=Math.round((v*${fee.pct}/100+${fee.fixed})*100)/100,yp=Math.max(0,Math.round((v-f)*100)/100);document.getElementById('yprice').textContent='$'+yp.toFixed(2);document.getElementById('ysave').textContent='ahorras $'+(v-yp).toFixed(2);yl.href='/p/${esc(p.slug)}/yappy?amount='+v}})</script>${showYappy ? `<script type="module" src="https://bt-cdn.yappy.cloud/v1/cdn/web-component-btn-yappy.js"></script>
+  <script>/* Botón OFICIAL de Yappy (web component). En simulación su clic lleva a nuestro flujo simulado. Si el CDN no carga, queda el botón alterno con el logo oficial. */
+  customElements.whenDefined('btn-yappy').then(()=>document.querySelector('.ywrap').classList.add('wc-ok'));
+  const yb=document.getElementById('ybtn'),go=()=>location.href=document.getElementById('yappyLink').href;yb.addEventListener('eventClick',go);yb.addEventListener('click',go);</script>` : ''}${walletJs}`));
 });
 
 app.post('/p/:slug/pay', async (req, res) => {
@@ -282,7 +287,7 @@ app.get('/p/:slug/yappy', (req, res) => {
     <label for="phone">Tu número de Yappy</label><input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" required pattern="6[0-9]{3}-?[0-9]{4}" placeholder="6000-0000">
     ${p.type === 'digital' ? '<label for="buyer">Tu nombre</label><input id="buyer" name="buyer" autocomplete="name" required placeholder="Nombre y apellido">' : ''}
     <label for="email">Tu correo (para el recibo)</label><input id="email" name="email" type="email" autocomplete="email" required placeholder="tu@correo.com">
-    <button class="btn full ybtn">Pagar ${money(y.price)} con Yappy</button>
+    <button class="btn full ybtn">Pagar ${money(y.price)} con <img src="/yappy-logo-blanco.svg" alt="Yappy" height="22" style="vertical-align:middle"></button>
     <p class="muted small center">Te llegará una solicitud a tu app de Yappy para aprobar el pago.</p>
     <p class="center"><a class="muted small" href="/p/${esc(p.slug)}">Volver y pagar con tarjeta</a></p></form></main>`));
 });
