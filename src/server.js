@@ -1,6 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
-const { db, save } = require('./db');
+const { db, save, init: initDb, close: closeDb, backend: dbBackend } = require('./db');
 const digital = require('./digital');
 const processor = require('./adapters/' + (process.env.PROCESSOR || 'mock'));
 const mailer = require('./mailer');
@@ -105,7 +105,7 @@ app.post('/api/projects', async (req, res) => {
   const p = { id: crypto.randomUUID(), slug, name, type, amount: amount ? Number(amount) : null,
     free_amount: type !== 'digital' && (free_amount === 'on' || free_amount === true || !amount), author: author || null, seller: seller ? slugify(seller) : null, merchant_id, webhook_url: webhook_url || null,
     webhook_secret: 'whsec_' + crypto.randomBytes(16).toString('hex'), created_at: new Date().toISOString() };
-  if (type === 'digital') { try { p.file = digital.saveProductFile(p.id, file_b64); p.preview = await digital.makePreview(p.file); } catch (e) { return res.status(400).json({ error: e.message }); } }
+  if (type === 'digital') { try { p.file = await digital.saveProductFile(p.id, file_b64); p.preview = await digital.makePreview(p.file); } catch (e) { return res.status(400).json({ error: e.message }); } }
   db.projects.push(p); save();
   if (req.is('json')) return res.status(201).json(p);
   res.redirect('/admin');
@@ -325,6 +325,8 @@ app.post('/api/billing/run', async (req, res) => res.json(await runBilling(req.b
 setInterval(() => runBilling().catch(console.error), 60 * 60 * 1000);
 
 app.post('/webhooks/processor', (req, res) => { if (!processor.verifyWebhook(req)) return res.status(401).end(); res.json({ received: true }); });
+(async () => {
+  await initDb();
 // Datos de demostración si la base está vacía (SEED_DEMO=1), útil en despliegues nuevos
 if (process.env.SEED_DEMO === '1' && !db.projects.length) {
   const fs = require('fs'), path = require('path'); const mk = (o) => { const p = { id: crypto.randomUUID(), slug: slugify(o.name), amount: null, free_amount: false, webhook_url: null,
@@ -334,8 +336,11 @@ if (process.env.SEED_DEMO === '1' && !db.projects.length) {
   const sample = path.join(__dirname, '..', 'samples', 'partitura-ejemplo.pdf');
   if (fs.existsSync(sample)) for (const [name, amount] of [['Alfonsina y el Mar – Piano', 7.5], ['Bésame Mucho – Guitarra', 5]]) {
     const p = mk({ name, type: 'digital', amount, merchant_id: 'bg_comercio_partituras', author: 'Lischay', seller: 'lischay' });
-    p.file = digital.saveProductFile(p.id, fs.readFileSync(sample).toString('base64')); }
+    p.file = await digital.saveProductFile(p.id, fs.readFileSync(sample).toString('base64')); }
   save(); console.log('Datos de demostración creados');
 }
-(async () => { for (const p of db.projects) if (p.type === 'digital' && p.file && !p.preview) { try { p.preview = await digital.makePreview(p.file); } catch (e) { console.error('preview', e.message); } } save(); })();
-app.listen(PORT, () => console.log(`Tubería de pagos en ${BASE} (procesador: ${processor.name}, correo: ${mailer.name})`));
+for (const p of db.projects) if (p.type === 'digital' && p.file && (!p.preview || !require('fs').existsSync(require('path').join(__dirname, '..', 'files', p.preview)))) { try { p.preview = await digital.makePreview(p.file); } catch (e) { console.error('preview', e.message); } }
+  save();
+  app.listen(PORT, () => console.log(`Tubería de pagos en ${BASE} (procesador: ${processor.name}, correo: ${mailer.name}, datos: ${dbBackend})`));
+})().catch(e => { console.error('arranque', e); process.exit(1); });
+for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, async () => { await closeDb().catch(() => {}); process.exit(0); });

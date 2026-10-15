@@ -6,11 +6,11 @@ const MAX_DOWNLOADS = Number(process.env.MAX_DOWNLOADS || 5), LINK_DAYS = Number
 // Las fuentes estándar de PDF solo cubren WinAnsi: se limpian caracteres raros.
 const clean = s => String(s ?? '').replace(/[–—]/g, '-').replace(/[^\x20-\x7E\u00A0-\u00FF]/g, '');
 
-function saveProductFile(projectId, base64) {
+async function saveProductFile(projectId, base64) {
   const buf = Buffer.from(String(base64).replace(/^data:.*?;base64,/, ''), 'base64');
   if (buf.slice(0, 5).toString() !== '%PDF-') throw new Error('El archivo no es un PDF');
   fs.mkdirSync(FILES, { recursive: true });
-  const f = path.join(FILES, projectId + '.pdf'); fs.writeFileSync(f, buf); return path.basename(f);
+  const f = path.join(FILES, projectId + '.pdf'); fs.writeFileSync(f, buf); await require('./db').putFile(path.basename(f), buf); return path.basename(f);
 }
 function createDownload(db, pay) {
   const d = { token: crypto.randomBytes(24).toString('base64url'), payment_id: pay.id, project_id: pay.project_id,
@@ -48,6 +48,7 @@ async function makePreview(file) {
   const tmp = path.join(FILES, file + '.preview.pdf'); fs.writeFileSync(tmp, await pdf.save());
   const out = path.join(FILES, file.replace(/\.pdf$/, '') + '-preview');
   execFileSync('pdftoppm', ['-png', '-r', '45', '-singlefile', tmp, out]); fs.unlinkSync(tmp);
+  await require('./db').putFile(path.basename(out) + '.png', fs.readFileSync(out + '.png'));
   return path.basename(out) + '.png';
 }
 module.exports.makePreview = makePreview;

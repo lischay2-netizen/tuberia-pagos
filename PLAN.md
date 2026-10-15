@@ -124,3 +124,7 @@ Funciona en **simulación** (sin dinero real):
 
 ## 11. Productos digitales (partituras)
 Tipo `digital`: PDF guardado en `files/` (fuera de `public/`) y entregado solo por `/d/:token` (aleatorio, 7 días, 5 descargas). La marca de agua se pone en cada descarga con pdf-lib. Catálogo `/tienda/:seller` con el mismo diseño neutro. Pendiente para producción: guardar los archivos en almacenamiento privado (S3/R2), aplicar un límite por IP, y que el link de Instagram use un dominio corto propio con HTTPS.
+
+## 12. Persistencia y correo (gratis)
+- Base de datos: **Neon Free** (Postgres, sin vencimiento; 1 GB por proyecto, 100 CU-h/mes, se suspende a los 5 min sin uso). Los PDF se guardan en Postgres (bytea), así que no hace falta almacenamiento de objetos para pocas partituras. Se descartó Render Postgres Free porque vence a los 30 días y se borra 14 días después.
+- Correo: **Brevo Free** por API HTTP (300 correos/día, sin tarjeta; permite remitente verificado sin dominio). Resend Free (100/día, 3.000/mes) requiere dominio propio. Gmail SMTP no funciona desde Render free (puertos SMTP bloqueados).

@@ -47,3 +47,9 @@ node test/e2e.js
 - Tokens de descarga de 192 bits, comparados en tiempo constante (hash SHA-256 + timingSafeEqual).
 - Vista previa pública: solo un PNG de 45 dpi de la página 1, marcado "VISTA PREVIA".
 - Auditoría: `test/audit.sh http://localhost:3000`.
+
+## Persistencia y correo real (opcionales, por variables de entorno)
+- `DATABASE_URL=postgres://...` → guarda proyectos, pagos, suscripciones, descargas y los PDF/vistas previas en Postgres (tablas `records` y `files`). Sin ella se usa `data.json`.
+- `MAILER=brevo` + `BREVO_API_KEY` + `MAIL_FROM` (+ `MAIL_FROM_NAME`) → envía recibos reales por la API HTTP de Brevo. `MAILER=resend` + `RESEND_API_KEY` también funciona, pero exige un dominio propio. Si el envío falla, se guarda una copia en `outbox/`.
+- En Render free no sirve SMTP: bloquea los puertos 25, 465 y 587. Por eso el correo va por API HTTP.
+- Pruebas: `test/mock-mail-api.js` imita la API de Brevo en el puerto 4100 (`BREVO_API_URL=http://localhost:4100/v3/smtp/email`).
