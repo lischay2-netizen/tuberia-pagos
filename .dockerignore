@@ -1,0 +1,8 @@
+node_modules
+.env
+data.json
+files
+outbox
+*.png
+*.log
+samples/descarga-*.pdf

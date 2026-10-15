@@ -1,0 +1,27 @@
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f3f3f5;color:#111}
+:root{--brand:#1a73e8}.sim{background:#111;color:#ffb800;text-align:center;font:600 12px system-ui;padding:6px;letter-spacing:.05em}
+main{max-width:460px;margin:0 auto;padding:16px}main.admin{max-width:760px}
+.card{background:#fff;border-radius:18px;padding:20px;margin:14px 0;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+h1{margin:0;font-size:24px}h2{font-size:18px;margin:18px 0 8px}.muted{color:#666}.small{font-size:13px}.center{text-align:center}
+label{display:block;font-size:13px;font-weight:600;margin:12px 0 6px;color:#333}label.chk{font-weight:400;display:flex}label.chk input{width:auto;gap:8px;align-items:center}
+input,select,textarea{width:100%;padding:14px;border:1.5px solid #ddd;border-radius:12px;font-size:16px;background:#fafafa}
+input:focus{outline:none;border-color:var(--brand);background:#fff}textarea{font-family:monospace;font-size:12px}
+.btn{display:inline-block;margin-top:16px;background:var(--brand);color:#fff;border:0;border-radius:14px;padding:14px 22px;font-size:16px;font-weight:700;text-decoration:none;cursor:pointer}
+.btn.full{width:100%;padding:18px;font-size:18px}.btn.sm{padding:9px 16px;font-size:14px}
+.hero{display:flex;gap:14px;align-items:center;background:#111;color:#fff;border-radius:22px;padding:22px;margin-top:8px}.hero .muted{color:#bbb}
+.logo{width:52px;height:52px;border-radius:14px;background:var(--brand);color:#111;display:grid;place-items:center;font-weight:800;font-size:26px}
+.summary{display:flex;justify-content:space-between;align-items:center}.big{font-size:30px;font-weight:800}.big small{font-size:14px;color:#666}
+.chips{display:flex;gap:8px}.chip{flex:1;padding:12px 0;border-radius:12px;border:1.5px solid #ddd;background:#fff;font-weight:700;font-size:16px}
+.chip.on{background:var(--brand);border-color:var(--brand)}.two{display:flex;gap:12px}.two>div{flex:1}
+.row{display:flex;justify-content:space-between;align-items:center}.tag{background:#fff4d1;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;border-bottom:1px solid #eee;text-align:left}
+.result .icon{width:72px;height:72px;border-radius:50%;margin:10px auto;display:grid;place-items:center;font-size:38px;color:#fff}.ok{background:#1db954}.ko{background:#e5484d}
+.concept{font-size:18px;font-weight:600;color:#333}.co .big{font-size:48px;margin:6px 0}.co label{font-size:15px}.co input{font-size:18px;padding:16px}
+.wallets{display:flex;gap:10px;margin-top:4px}.wbtn{flex:1;height:54px;border-radius:14px;border:0;background:#000;color:#fff;font-size:20px;font-weight:600;cursor:pointer}
+.wbtn.gpay b{color:#4285f4}.or{text-align:center;color:#888;font-size:13px;margin:18px 0 4px;border-top:1px solid #eee;line-height:0}.or span{background:#fff;padding:0 10px}
+.btn.danger{background:#e5484d}.btn.xs{margin:0;padding:6px 12px;font-size:13px;background:#eee;color:#c00}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}.kpis .card{margin:0}.kpi{font-size:26px;font-weight:800}.scroll{overflow-x:auto}
+.wallets{flex-direction:column;gap:10px}.wslot{display:block;width:100%;height:48px}#gpay button{width:100%!important;height:48px!important}apple-pay-button{--apple-pay-button-width:100%;--apple-pay-button-height:48px;--apple-pay-button-border-radius:12px;--apple-pay-button-padding:0px;--apple-pay-button-box-sizing:border-box}
+.item{display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:inherit}.price{font-size:22px;font-weight:800}
+fieldset.dig{border:1.5px dashed #ccc;border-radius:12px;margin-top:14px}
+.preview{display:block;width:60%;max-width:220px;margin:14px auto 0;border:1px solid #ddd;border-radius:8px}
