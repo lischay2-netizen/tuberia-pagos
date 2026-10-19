@@ -97,6 +97,15 @@ function failHtml(p, sub, final) {
 <p>${esc(p.name)} – ${money(sub.amount)}/mes.</p><p>${final ? 'Intentamos cobrar 3 veces sin éxito, así que la cancelamos. No se cobrará nada más.' : `Lo intentaremos de nuevo el ${fdate(sub.next_charge_at)}. Revisa que tu tarjeta tenga fondos.`}</p></div>`;
 }
 
+// Copiar / compartir link de pago (portapapeles con respaldo; navigator.share en móviles).
+const COPY_JS = `<script>(()=>{const mobile=matchMedia('(pointer:coarse)').matches;
+const copy=t=>navigator.clipboard&&isSecureContext?navigator.clipboard.writeText(t):new Promise((ok,ko)=>{const a=document.createElement('textarea');a.value=t;a.setAttribute('readonly','');a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.select();try{document.execCommand('copy')?ok():ko()}catch(e){ko(e)}a.remove()});
+const flash=(b,m)=>{const o=b.dataset.o||(b.dataset.o=b.textContent);b.textContent=m;b.classList.add('done');setTimeout(()=>{b.textContent=o;b.classList.remove('done')},1600)};
+document.querySelectorAll('.share').forEach(b=>{if(navigator.share)b.hidden=false;b.onclick=()=>navigator.share({title:b.dataset.title,url:b.dataset.url}).catch(()=>{})});
+document.querySelectorAll('.copy').forEach(b=>b.onclick=e=>{e.preventDefault();const u=b.dataset.url;
+ if(b.classList.contains('iconbtn')&&mobile&&navigator.share)return navigator.share({title:b.dataset.title,url:u}).catch(()=>{});
+ copy(u).then(()=>flash(b,b.classList.contains('iconbtn')?'✓':'Copiado'),()=>{prompt('Copia este link:',u)})})})()</script>`;
+
 // ---------- API ----------
 app.get('/api/projects', (req, res) => res.json(db.projects.map(({ webhook_secret, ...p }) => p)));
 app.post('/api/projects', async (req, res) => {
@@ -129,7 +138,7 @@ app.get('/admin', (req, res) => {
     return `<div class="card proj"><div class="row"><b>${esc(p.name)}</b><span class="tag">${TYPES[p.type]}</span></div>
       <div class="muted">Cuenta destino: <code>${esc(p.merchant_id)}</code> · Monto: ${p.amount ? money(p.amount) : 'libre'}${fees.yappyAllowed(p) && p.amount ? ` · Yappy: ${money(fees.yappyPrice(p.amount, p).price)}` : ''} · comisión tarjeta ${fees.cardFee(p).pct}% + ${money(fees.cardFee(p).fixed)}${fees.cardFee(p).estimate ? ' (estimada)' : ''}</div>
       <div class="muted">Recaudado: <b>${money(sum(pp))}</b> · ${pp.length} pago(s)${p.type === 'subscription' ? ` · ${subs} suscriptor(es) activos` : ''}</div>
-      <label>Link</label><input readonly value="${esc(BASE)}/p/${esc(p.slug)}">
+      <label>Link</label><div class="linkrow"><input readonly value="${esc(BASE)}/p/${esc(p.slug)}"><button type="button" class="btn sm copy" data-url="${esc(BASE)}/p/${esc(p.slug)}">Copiar link</button><button type="button" class="btn sm share" data-url="${esc(BASE)}/p/${esc(p.slug)}" data-title="${esc(p.name)}" hidden>Compartir</button></div>
       <label>Botón para pegar</label><textarea readonly rows="2">&lt;script src="${esc(BASE)}/button.js" data-project="${esc(p.slug)}"&gt;&lt;/script&gt;</textarea>
       ${p.type === 'digital' ? `<div class="muted small">PDF: ${esc(p.file)} · Autor: ${esc(p.author)} · Descargas: ${db.downloads.filter(d => d.project_id === p.id).reduce((a, d) => a + d.count, 0)}${p.seller ? ` · Tienda: <a href="/tienda/${esc(p.seller)}">/tienda/${esc(p.seller)}</a>` : ''}</div>` : ''}
       ${p.webhook_url ? `<div class="muted small">Webhook: ${esc(p.webhook_url)} · secreto: <code>${esc(p.webhook_secret)}</code></div>` : ''}
@@ -163,7 +172,7 @@ app.get('/admin', (req, res) => {
     <script>document.getElementById('pdf').onchange=e=>{const r=new FileReader();r.onload=()=>document.getElementById('file_b64').value=r.result;r.readAsDataURL(e.target.files[0])}</script>
     <label>Comisión de tarjeta para este proyecto (vacío = global ${fees.cardFee({}).pct}% + ${money(fees.cardFee({}).fixed)}, ESTIMADA)</label><div class="two"><input name="card_fee_pct" type="number" step="0.01" placeholder="% ej. 3.75"><input name="card_fee_fixed" type="number" step="0.01" placeholder="fijo ej. 0.50"></div>
     <label>Webhook del proyecto (opcional)</label><input name="webhook_url" placeholder="https://miapp.com/pagos/webhook">
-    <button class="btn">Crear proyecto</button></form></main>`));
+    <button class="btn">Crear proyecto</button></form></main>${COPY_JS}`));
 });
 app.get('/', (req, res) => res.redirect('/admin'));
 
@@ -338,7 +347,7 @@ app.get('/tienda/:seller', (req, res) => {
   const items = db.projects.filter(p => p.seller === req.params.seller);
   if (!items.length) return res.status(404).send(layout('Tienda', '<main class="co"><div class="card center"><h1>Tienda no encontrada</h1></div></main>'));
   res.send(layout('Tienda', `<main class="co"><h1 class="center" style="margin:18px 0 4px">Catálogo</h1><p class="muted center">Toca un producto para comprarlo</p>
-  ${items.map(p => `<a class="card item" href="/p/${esc(p.slug)}"><div><div class="concept">${esc(p.name)}</div><div class="muted small">${p.type === 'digital' ? 'PDF · descarga inmediata' : TYPES[p.type]}</div></div><div class="price">${p.compare_at_price ? `<span class="was">${money(p.compare_at_price)}</span> ` : ''}${p.amount ? money(p.amount) : 'Libre'}${p.compare_at_price ? '<div class="launch">Precio de lanzamiento</div>' : ''}</div></a>`).join('')}</main>`));
+  ${items.map(p => `<div class="itemwrap"><a class="card item" href="/p/${esc(p.slug)}"><div><div class="concept">${esc(p.name)}</div><div class="muted small">${p.type === 'digital' ? 'PDF · descarga inmediata' : TYPES[p.type]}</div></div><div class="price">${p.compare_at_price ? `<span class="was">${money(p.compare_at_price)}</span> ` : ''}${p.amount ? money(p.amount) : 'Libre'}${p.compare_at_price ? '<div class="launch">Precio de lanzamiento</div>' : ''}</div></a><button type="button" class="iconbtn copy" data-url="${esc(BASE)}/p/${esc(p.slug)}" data-title="${esc(p.name)}" aria-label="Copiar link" title="Copiar link">🔗</button></div>`).join('')}</main>${COPY_JS}`));
 });
 
 // ---------- Cobros recurrentes: cobra vencidas; si falla reintenta cada 3 días; al 3er fallo cancela ----------
