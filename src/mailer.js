@@ -22,7 +22,8 @@ const http = (name, url, headers, body) => ({
     try {
       const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', ...headers() }, body: JSON.stringify(body(msg)) });
       const t = await r.text(); if (!r.ok) throw new Error(`${name} ${r.status}: ${t.slice(0, 300)}`);
-      return { id: (JSON.parse(t || '{}').messageId || JSON.parse(t || '{}').id || 'ok') };
+      const id = JSON.parse(t || '{}').messageId || JSON.parse(t || '{}').id || 'ok';
+      console.log(`mailer ${name} aceptado: ${id}`); return { id };
     } catch (e) { console.error('mailer', e.message); await outbox.send(msg); return { error: e.message }; }
   }
 });
