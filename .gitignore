@@ -10,3 +10,6 @@ tunnel.log
 test/receiver.log
 screenshot-admin.png
 test/mail-api-recibido.jsonl
+.env.local
+.env.*
+.neon
