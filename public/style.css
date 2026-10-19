@@ -36,25 +36,24 @@ fieldset.dig{border:1.5px dashed #ccc;border-radius:12px;margin-top:14px}
 .was{text-decoration:line-through;color:#888;font-size:18px;font-weight:500}.price .was{font-size:15px}.launch{display:inline-block;font-size:12px;font-weight:600;color:#0a7a3d;background:#e8f6ee;border-radius:999px;padding:2px 10px;margin:4px 0}.price .launch{display:block;text-align:right}.desc{max-width:340px;margin:8px auto 0}
 .linkrow{display:flex;gap:6px;align-items:stretch}.linkrow input{flex:1;min-width:0}.btn.copy.done,.iconbtn.done{background:#0a7a3d;color:#fff}.itemwrap{position:relative}.itemwrap .item{padding-right:56px}.iconbtn{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;border:1px solid #ddd;background:#fff;cursor:pointer;font-size:16px;line-height:1}
 
-/* ---- Tienda Lischay Studio ---- */
-.st{min-height:100vh;background:linear-gradient(#fbfaf7,#f3f1ec);color:#1b1b1d}
-.st-head{text-align:center;padding:40px 20px 18px;max-width:720px;margin:0 auto}
-.st-mono{width:74px;height:74px;margin:0 auto 14px;border-radius:50%;border:1.5px solid #1b1b1d;display:grid;place-items:center;font:500 26px/1 Georgia,'Times New Roman',serif;letter-spacing:.08em}
-.st-logo{width:84px;height:84px;object-fit:cover;border-radius:50%;margin:0 auto 14px;display:block;box-shadow:0 4px 16px rgba(0,0,0,.08)}
-.st-name{font:400 34px/1.1 Georgia,'Times New Roman',serif;letter-spacing:.02em;margin:0}
-.st-tag{margin:10px 0 0;color:#6b6760;font-size:15px;letter-spacing:.02em}
-.st-ig{display:inline-block;margin-top:12px;font-size:14px;color:#1b1b1d;text-decoration:none;border-bottom:1px solid #c9c4ba}
-.st-grid{display:grid;grid-template-columns:1fr;gap:18px;max-width:960px;margin:0 auto;padding:12px 18px 30px}
-@media(min-width:640px){.st-grid{grid-template-columns:repeat(2,1fr)}}@media(min-width:960px){.st-grid{grid-template-columns:repeat(3,1fr)}}
-.st-card{position:relative;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 2px 18px rgba(30,25,15,.07);transition:transform .15s,box-shadow .15s}
-.st-card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(30,25,15,.11)}
+/* ---- Tienda Lischay Studio (minimalista) ---- */
+.st{min-height:100vh;background:#fbfaf8;color:#1d1c1a}
+.st-head{text-align:center;padding:72px 24px 40px;max-width:720px;margin:0 auto}
+.st-name{font:400 40px/1.1 'Cormorant Garamond','EB Garamond',Garamond,'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;letter-spacing:.06em;margin:0}
+.st-tag{margin:14px 0 0;color:#8a857c;font-size:14px;letter-spacing:.08em}
+.st-ig{display:inline-block;margin-top:16px;font-size:13px;letter-spacing:.06em;color:#5f5b54;text-decoration:none;border-bottom:1px solid #d8d3ca}
+.st-grid{display:grid;grid-template-columns:1fr;gap:40px;max-width:1000px;margin:0 auto;padding:8px 28px 72px}
+@media(min-width:680px){.st-grid{grid-template-columns:repeat(2,1fr)}}@media(min-width:1000px){.st-grid{grid-template-columns:repeat(3,1fr)}}
+.st-card{position:relative}
 .st-link{display:block;color:inherit;text-decoration:none}
-.st-thumb{background:#f4f2ee;aspect-ratio:4/3;overflow:hidden;display:flex;justify-content:center;align-items:flex-start;padding:18px 18px 0}
-.st-thumb img{width:82%;box-shadow:0 2px 10px rgba(0,0,0,.08);border-radius:3px 3px 0 0}
-.st-ph{margin:auto;font:400 40px Georgia,serif;color:#b9b3a7}
-.st-body{padding:16px 18px 18px}.st-title{font:400 20px/1.25 Georgia,'Times New Roman',serif;margin:0}
-.st-meta{color:#7a756c;font-size:13px;margin-top:4px}
-.st-price{display:flex;align-items:baseline;gap:8px;margin-top:12px}.st-price b{font-size:22px}.st-price .was{font-size:15px}
-.st-body .launch{margin-top:6px}.st-cta{display:block;margin-top:14px;text-align:center;background:#1b1b1d;color:#fff;border-radius:12px;padding:12px;font-weight:600}
-.st-share{top:14px;right:14px;transform:none;background:rgba(255,255,255,.92)}
-.st-foot{text-align:center;padding:24px 16px 36px;color:#4a4740;font-size:14px;border-top:1px solid #e6e2da;max-width:960px;margin:0 auto}.st-foot a{color:inherit}
+.st-thumb{background:#f1efea;aspect-ratio:4/5;overflow:hidden;display:flex;justify-content:center;align-items:flex-start;padding:28px 28px 0}
+.st-thumb img{width:86%;box-shadow:0 1px 6px rgba(0,0,0,.06)}
+.st-link:hover .st-thumb img{opacity:.92}
+.st-body{padding:16px 2px 0;text-align:center}
+.st-title{font:400 20px/1.3 'Cormorant Garamond','EB Garamond',Garamond,'Palatino Linotype',Palatino,Georgia,serif;letter-spacing:.02em;margin:0}
+.st-meta{color:#9a958b;font-size:12px;letter-spacing:.06em;margin-top:6px}
+.st-price{display:flex;justify-content:center;align-items:baseline;gap:10px;margin-top:10px}.st-price b{font-size:16px;font-weight:600}.st-price .was{font-size:14px;color:#a8a39a}
+.st-body .launch{margin-top:8px;background:none;color:#7b766d;font-weight:500;letter-spacing:.06em;font-size:11px;text-transform:uppercase;padding:0}
+.st-cta{display:none}
+.st-share{top:12px;right:12px;transform:none;background:rgba(255,255,255,.85);border-color:#e6e2da;width:32px;height:32px;font-size:14px}
+.st-foot{text-align:center;padding:28px 16px 48px;color:#8a857c;font-size:12px;letter-spacing:.06em;border-top:1px solid #ece8e1;max-width:1000px;margin:0 auto}.st-foot a{color:inherit}.st-foot .muted{color:#a8a39a;margin-top:6px}
