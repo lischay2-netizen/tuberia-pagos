@@ -8,6 +8,12 @@ const FILES = path.join(__dirname, '..', 'files');
 const COLLECTIONS = ['projects', 'payments', 'subscriptions', 'downloads'];
 const db = { projects: [], payments: [], subscriptions: [], downloads: [] };
 let pool = null, timer = null, pending = Promise.resolve();
+// Protección: una base de Neon (producción) solo se usa si NODE_ENV=production (Render) o ALLOW_PROD_DB=1.
+// Así las pruebas locales nunca escriben en producción aunque DATABASE_URL esté en el entorno.
+if (process.env.DATABASE_URL && /neon\.tech/.test(process.env.DATABASE_URL) && process.env.NODE_ENV !== 'production' && process.env.ALLOW_PROD_DB !== '1') {
+  console.warn('DATABASE_URL de Neon ignorada fuera de producción (usa ALLOW_PROD_DB=1 para forzarla). Usando data.json local.');
+  delete process.env.DATABASE_URL;
+}
 const backend = process.env.DATABASE_URL ? 'postgres' : 'json';
 
 async function init() {

@@ -13,3 +13,4 @@ test/mail-api-recibido.jsonl
 .env.local
 .env.*
 .neon
+backup-*.json

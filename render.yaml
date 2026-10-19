@@ -10,6 +10,8 @@ services:
       - key: BASE_URL
         sync: false
       - key: SEED_DEMO
-        value: "1"
+        value: "0"
+      - key: NODE_ENV
+        value: production
       - key: PROCESSOR
         value: mock

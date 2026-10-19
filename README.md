@@ -53,3 +53,7 @@ node test/e2e.js
 - `MAILER=brevo` + `BREVO_API_KEY` + `MAIL_FROM` (+ `MAIL_FROM_NAME`) → envía recibos reales por la API HTTP de Brevo. `MAILER=resend` + `RESEND_API_KEY` también funciona, pero exige un dominio propio. Si el envío falla, se guarda una copia en `outbox/`.
 - En Render free no sirve SMTP: bloquea los puertos 25, 465 y 587. Por eso el correo va por API HTTP.
 - Pruebas: `test/mock-mail-api.js` imita la API de Brevo en el puerto 4100 (`BREVO_API_URL=http://localhost:4100/v3/smtp/email`).
+
+
+## Base de datos y pruebas
+En Render se usa Neon (producción) con `NODE_ENV=production`. Fuera de producción, una `DATABASE_URL` de Neon se **ignora** y se usa `data.json` local, para que las pruebas (`test/e2e.js`, `test/digital.js`) nunca escriban en producción. Para forzarla (solo si sabes lo que haces): `ALLOW_PROD_DB=1`. Para probar con Postgres, usa una rama de Neon aparte (`neon checkout dev --create`) o un Postgres local.
