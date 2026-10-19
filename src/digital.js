@@ -41,14 +41,27 @@ module.exports = { saveProductFile, createDownload, watermark, MAX_DOWNLOADS, LI
 async function makePreview(file) {
   const { execFileSync } = require('child_process');
   const src = await PDFDocument.load(fs.readFileSync(path.join(FILES, file)));
-  const pdf = await PDFDocument.create(); const [pg] = await pdf.copyPages(src, [0]); pdf.addPage(pg);
-  const font = await pdf.embedFont(StandardFonts.HelveticaBold); const { width, height } = pg.getSize();
-  for (let y = -height; y < height * 1.5; y += 140) for (let x = -width; x < width * 1.5; x += 300)
-    pg.drawText('VISTA PREVIA', { x, y, size: 34, font, color: rgb(0.85, 0.1, 0.1), opacity: 0.28, rotate: degrees(35) });
+  const pdf = await PDFDocument.create(); const [emb] = await pdf.embedPdf(src, [0]);
+  const pg = pdf.addPage([emb.width, emb.height]); pg.drawPage(emb); // incrustada: su contenido no altera las coordenadas de la superposición
+  const font = await pdf.embedFont(StandardFonts.Helvetica), bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const { width, height } = pg.getSize(), gray = rgb(0.25, 0.25, 0.28);
+  // Marca muy tenue en diagonal (≈7 %) para que las capturas sigan identificadas.
+  for (let y = -height; y < height * 1.5; y += 120) for (let x = -width; x < width * 1.5; x += 260)
+    pg.drawText('Vista previa', { x, y, size: 20, font, color: gray, opacity: 0.07, rotate: degrees(30) });
+  // Mitad inferior: degradado suave hacia blanco, la página completa no se puede usar.
+  const fadeTop = height * 0.6, steps = 40;
+  for (let i = 0; i < steps; i++) { const h = fadeTop / steps, t = (i + 1) / steps;
+    pg.drawRectangle({ x: 0, y: fadeTop - (i + 1) * h, width, height: h + 0.5, color: rgb(1, 1, 1), opacity: Math.min(1, Math.pow(t, 0.7) * 1.7) }); }
+  pg.drawRectangle({ x: 0, y: 0, width, height: fadeTop * 0.4, color: rgb(1, 1, 1), opacity: 1 });
+  // Etiqueta discreta tipo píldora, centrada en la zona desvanecida.
+  const label = 'VISTA PREVIA · PÁGINA 1', size = 13, tw = bold.widthOfTextAtSize(label, size), pw = tw + 36, ph = 30, px = (width - pw) / 2, py = fadeTop * 0.5;
+  pg.drawRectangle({ x: px, y: py, width: pw, height: ph, color: rgb(0.13, 0.13, 0.15), opacity: 0.78, borderColor: rgb(0.13, 0.13, 0.15), borderOpacity: 0 });
+  pg.drawText(label, { x: px + 18, y: py + 10, size, font: bold, color: rgb(1, 1, 1) });
   const tmp = path.join(FILES, file + '.preview.pdf'); fs.writeFileSync(tmp, await pdf.save());
   const out = path.join(FILES, file.replace(/\.pdf$/, '') + '-preview');
-  execFileSync('pdftoppm', ['-png', '-r', '45', '-singlefile', tmp, out]); fs.unlinkSync(tmp);
+  execFileSync('pdftoppm', ['-png', '-r', '60', '-singlefile', tmp, out]); fs.unlinkSync(tmp);
   await require('./db').putFile(path.basename(out) + '.png', fs.readFileSync(out + '.png'));
   return path.basename(out) + '.png';
 }
 module.exports.makePreview = makePreview;
+module.exports.PREVIEW_V = 2; // subir al cambiar el diseño de la vista previa → se regeneran todas al arrancar

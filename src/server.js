@@ -108,7 +108,7 @@ app.post('/api/projects', async (req, res) => {
   const p = { id: crypto.randomUUID(), slug, name, type, amount: amount ? Number(amount) : null,
     free_amount: type !== 'digital' && (free_amount === 'on' || free_amount === true || !amount), card_fee_pct: req.body.card_fee_pct !== undefined && req.body.card_fee_pct !== '' ? Number(req.body.card_fee_pct) : null, card_fee_fixed: req.body.card_fee_fixed !== undefined && req.body.card_fee_fixed !== '' ? Number(req.body.card_fee_fixed) : null, author: author || null, description: description ? String(description).slice(0, 300) : null, compare_at_price: compare && amount && compare > Number(amount) ? compare : null, seller: seller ? slugify(seller) : null, merchant_id, webhook_url: webhook_url || null,
     webhook_secret: 'whsec_' + crypto.randomBytes(16).toString('hex'), created_at: new Date().toISOString() };
-  if (type === 'digital') { try { p.file = await digital.saveProductFile(p.id, file_b64); p.preview = await digital.makePreview(p.file); } catch (e) { return res.status(400).json({ error: e.message }); } }
+  if (type === 'digital') { try { p.file = await digital.saveProductFile(p.id, file_b64); p.preview = await digital.makePreview(p.file); p.preview_v = digital.PREVIEW_V; } catch (e) { return res.status(400).json({ error: e.message }); } }
   db.projects.push(p); save();
   if (req.is('json')) return res.status(201).json(p);
   res.redirect('/admin');
@@ -220,7 +220,7 @@ app.get('/p/:slug', (req, res) => {
   res.send(layout('Pago', `<main class="co">
   <div class="card center"><div class="concept">${esc(p.name)}</div>${showYappy ? '<div class="muted small">Con tarjeta</div>' : ''}${p.compare_at_price && !p.free_amount ? `<div class="launch">Precio de lanzamiento</div><div class="was">${money(p.compare_at_price)}</div>` : ''}<div class="big" id="total">${money(amt)}</div><div class="muted">${sub ? 'cada mes' : p.type === 'donation' ? 'donación' : p.type === 'digital' ? 'PDF · descarga inmediata' : 'pago único'}</div>${p.description ? `<p class="muted small desc">${esc(p.description)}</p>` : ''}${showYappy ? `<div class="yprice-line">Con Yappy <b id="yprice">${money(y.price)}</b> · <span class="ysave" id="ysave">ahorras ${money(y.savings)}</span></div>
   <div class="ywrap"><btn-yappy id="ybtn" theme="blue" rounded="true"></btn-yappy>
-  <a class="yappy-fallback" id="yappyLink" href="/p/${esc(p.slug)}/yappy?amount=${amt}">Pagar con <img src="/yappy-logo-blanco.svg" alt="Yappy" height="26"></a></div><p class="muted small">Con Yappy no hay comisión de tarjeta${fee.estimate ? ' (ahorro estimado)' : ''}.</p>` : ''}${p.preview ? `<img class="preview" src="/preview/${esc(p.slug)}.png" alt="Vista previa de la primera página">` : ''}</div>
+  <a class="yappy-fallback" id="yappyLink" href="/p/${esc(p.slug)}/yappy?amount=${amt}">Pagar con <img src="/yappy-logo-blanco.svg" alt="Yappy" height="26"></a></div><p class="muted small">Con Yappy no hay comisión de tarjeta${fee.estimate ? ' (ahorro estimado)' : ''}.</p>` : ''}${p.preview ? `<img class="preview" src="/preview/${esc(p.slug)}.png?v=${p.preview_v || 1}" alt="Vista previa de la primera página">` : ''}</div>
   <form class="card" method="post" action="/p/${esc(p.slug)}/pay" autocomplete="on">
     ${amountField}
     ${wallets}
@@ -389,7 +389,7 @@ if (process.env.SEED_DEMO === '1' && !db.projects.length) {
     p.file = await digital.saveProductFile(p.id, fs.readFileSync(sample).toString('base64')); }
   save(); console.log('Datos de demostración creados');
 }
-for (const p of db.projects) if (p.type === 'digital' && p.file && (!p.preview || !require('fs').existsSync(require('path').join(__dirname, '..', 'files', p.preview)))) { try { p.preview = await digital.makePreview(p.file); } catch (e) { console.error('preview', e.message); } }
+for (const p of db.projects) if (p.type === 'digital' && p.file && (!p.preview || p.preview_v !== digital.PREVIEW_V || !require('fs').existsSync(require('path').join(__dirname, '..', 'files', p.preview)))) { try { p.preview = await digital.makePreview(p.file); p.preview_v = digital.PREVIEW_V; save(); } catch (e) { console.error('preview', e.message); } }
   save();
   app.listen(PORT, () => console.log(`Tubería de pagos en ${BASE} (procesador: ${processor.name}, correo: ${mailer.name}, datos: ${dbBackend})`));
 })().catch(e => { console.error('arranque', e); process.exit(1); });
