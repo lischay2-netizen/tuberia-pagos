@@ -5,7 +5,7 @@
 const fs = require('fs'), path = require('path');
 const FILE = path.join(__dirname, '..', 'data.json');
 const FILES = path.join(__dirname, '..', 'files');
-const COLLECTIONS = ['projects', 'payments', 'subscriptions', 'downloads'];
+const COLLECTIONS = ['projects', 'payments', 'subscriptions', 'downloads', 'settings'];
 const db = { projects: [], payments: [], subscriptions: [], downloads: [] };
 let pool = null, timer = null, pending = Promise.resolve();
 // Protección: una base de Neon (producción) solo se usa si NODE_ENV=production (Render) o ALLOW_PROD_DB=1.

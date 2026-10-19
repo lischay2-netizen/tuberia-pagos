@@ -31,6 +31,7 @@ app.use('/d/', rateLimit('d', 20, 10 * 60 * 1000));
 app.use('/p/', rateLimit('p', 60, 60 * 1000));
 app.use('/s/', rateLimit('s', 20, 10 * 60 * 1000));
 // Panel y API protegidos con contraseña (Basic Auth, usuario "admin"); máximo 10 intentos fallidos por IP cada 15 min
+app.get('/healthz', (req, res) => res.set('cache-control', 'no-store').type('text').send('ok')); // sin DB: para el ping que evita que Render duerma
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const fails = new Map();
 app.use(['/admin', '/api'], (req, res, next) => {
@@ -57,7 +58,7 @@ const SIM = processor.name === 'mock' ? '<div class="sim">MODO SIMULACIÓN · no
 const layout = (title, body) => `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><link rel="stylesheet" href="/style.css"></head><body>${SIM}${body}</body></html>`;
 const cancelToken = sid => crypto.createHmac('sha256', SECRET).update('cancel:' + sid).digest('hex').slice(0, 32);
 const cancelUrl = s => `${BASE}/s/${s.id}/cancelar?t=${cancelToken(s.id)}`;
-db.subscriptions ||= []; db.downloads ||= [];
+db.subscriptions ||= []; db.downloads ||= []; db.settings ||= [];
 const dlUrl = d => `${BASE}/d/${d.token}`;
 
 // ---------- Webhooks salientes firmados (HMAC-SHA256) ----------
@@ -172,7 +173,12 @@ app.get('/admin', (req, res) => {
     <script>document.getElementById('pdf').onchange=e=>{const r=new FileReader();r.onload=()=>document.getElementById('file_b64').value=r.result;r.readAsDataURL(e.target.files[0])}</script>
     <label>Comisión de tarjeta para este proyecto (vacío = global ${fees.cardFee({}).pct}% + ${money(fees.cardFee({}).fixed)}, ESTIMADA)</label><div class="two"><input name="card_fee_pct" type="number" step="0.01" placeholder="% ej. 3.75"><input name="card_fee_fixed" type="number" step="0.01" placeholder="fijo ej. 0.50"></div>
     <label>Webhook del proyecto (opcional)</label><input name="webhook_url" placeholder="https://miapp.com/pagos/webhook">
-    <button class="btn">Crear proyecto</button></form></main>${COPY_JS}`));
+    <button class="btn">Crear proyecto</button></form>
+  ${(() => { const st = storeSettings('lischay'); return `<h2 id="tienda">Tienda (/tienda/lischay)</h2><form class="card" method="post" action="/admin/store"><input type="hidden" name="seller" value="lischay">
+    <label>Nombre</label><input name="name" value="${esc(st.name)}"><label>Lema</label><input name="tagline" value="${esc(st.tagline)}">
+    <label>Instagram (usuario, sin @) — vacío = oculto</label><input name="instagram" value="${esc(st.instagram)}" placeholder="tu_usuario">
+    <label>Foto o logo (link https a una imagen) — vacío = monograma</label><input name="logo_url" value="${esc(st.logo_url)}" placeholder="https://…">
+    <button class="btn">Guardar tienda</button> <a class="btn sm ghost" href="/tienda/lischay" target="_blank">Ver tienda</a></form>`; })()}</main>${COPY_JS}`));
 });
 app.get('/', (req, res) => res.redirect('/admin'));
 
@@ -343,11 +349,35 @@ app.get('/preview/:slug.png', (req, res) => {
 });
 
 // ---------- Tienda / catálogo (mismo diseño neutro) ----------
+// Ajustes de la tienda (editables en /admin): nombre, lema, Instagram, foto/logo. Por defecto: Lischay Studio.
+const STORE_DEFAULTS = { name: 'Lischay Studio', tagline: 'Partituras originales y arreglos para piano', instagram: '', logo_url: '' };
+const storeSettings = seller => ({ ...STORE_DEFAULTS, ...(db.settings.find(x => x.id === 'store:' + seller) || {}) });
+const monogram = n => esc(String(n).split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'LS');
 app.get('/tienda/:seller', (req, res) => {
   const items = db.projects.filter(p => p.seller === req.params.seller);
   if (!items.length) return res.status(404).send(layout('Tienda', '<main class="co"><div class="card center"><h1>Tienda no encontrada</h1></div></main>'));
-  res.send(layout('Tienda', `<main class="co"><h1 class="center" style="margin:18px 0 4px">Catálogo</h1><p class="muted center">Toca un producto para comprarlo</p>
-  ${items.map(p => `<div class="itemwrap"><a class="card item" href="/p/${esc(p.slug)}"><div><div class="concept">${esc(p.name)}</div><div class="muted small">${p.type === 'digital' ? 'PDF · descarga inmediata' : TYPES[p.type]}</div></div><div class="price">${p.compare_at_price ? `<span class="was">${money(p.compare_at_price)}</span> ` : ''}${p.amount ? money(p.amount) : 'Libre'}${p.compare_at_price ? '<div class="launch">Precio de lanzamiento</div>' : ''}</div></a><button type="button" class="iconbtn copy" data-url="${esc(BASE)}/p/${esc(p.slug)}" data-title="${esc(p.name)}" aria-label="Copiar link" title="Copiar link">🔗</button></div>`).join('')}</main>${COPY_JS}`));
+  const st = storeSettings(req.params.seller), ig = st.instagram;
+  const mark = st.logo_url ? `<img class="st-logo" src="${esc(st.logo_url)}" alt="${esc(st.name)}">` : `<div class="st-mono" aria-hidden="true">${monogram(st.name)}</div>`;
+  const card = p => `<article class="st-card"><a class="st-link" href="/p/${esc(p.slug)}">
+    <div class="st-thumb">${p.preview ? `<img src="/preview/${esc(p.slug)}.png?v=${p.preview_v || 1}" alt="Vista previa de ${esc(p.name)}" loading="lazy">` : `<div class="st-ph">${monogram(st.name)}</div>`}</div>
+    <div class="st-body"><h2 class="st-title">${esc(p.name)}</h2><div class="st-meta">${p.type === 'digital' ? 'PDF · descarga inmediata' : TYPES[p.type]}</div>
+    <div class="st-price">${p.compare_at_price ? `<span class="was">${money(p.compare_at_price)}</span>` : ''}<b>${p.amount ? money(p.amount) : 'Monto libre'}</b></div>
+    ${p.compare_at_price ? '<span class="launch">Precio de lanzamiento</span>' : ''}<span class="st-cta">Comprar</span></div></a>
+    <button type="button" class="iconbtn copy st-share" data-url="${esc(BASE)}/p/${esc(p.slug)}" data-title="${esc(p.name)}" aria-label="Copiar o compartir link" title="Copiar link">🔗</button></article>`;
+  res.send(layout(st.name, `<div class="st">
+  <header class="st-head">${mark}<h1 class="st-name">${esc(st.name)}</h1><p class="st-tag">${esc(st.tagline)}</p>
+  ${ig ? `<a class="st-ig" href="https://instagram.com/${esc(ig)}" target="_blank" rel="noopener">@${esc(ig)} en Instagram</a>` : ''}</header>
+  <main class="st-grid">${items.map(card).join('')}</main>
+  <footer class="st-foot"><div>© ${new Date().getFullYear()} ${esc(st.name)}</div><div class="muted small">Pagos seguros · Descarga inmediata tras el pago${ig ? ` · <a href="https://instagram.com/${esc(ig)}" target="_blank" rel="noopener">Instagram</a>` : ''}</div></footer>
+  </div>${COPY_JS}`));
+});
+app.post('/admin/store', (req, res) => {
+  const seller = slugify(req.body.seller || 'lischay'), id = 'store:' + seller;
+  const logo = String(req.body.logo_url || '').trim(), ig = String(req.body.instagram || '').trim().replace(/^@/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/\/.*$/, '');
+  const v = { id, seller, name: String(req.body.name || STORE_DEFAULTS.name).slice(0, 60), tagline: String(req.body.tagline || '').slice(0, 120),
+    instagram: /^[A-Za-z0-9._]{1,30}$/.test(ig) ? ig : '', logo_url: /^https:\/\/[^\s"'<>]+$/.test(logo) ? logo : '' };
+  const i = db.settings.findIndex(x => x.id === id); if (i >= 0) db.settings[i] = v; else db.settings.push(v); save();
+  res.redirect('/admin#tienda');
 });
 
 // ---------- Cobros recurrentes: cobra vencidas; si falla reintenta cada 3 días; al 3er fallo cancela ----------
