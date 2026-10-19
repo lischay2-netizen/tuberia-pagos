@@ -43,7 +43,7 @@ fieldset.dig{border:1.5px dashed #ccc;border-radius:12px;margin-top:14px}
 .st-tag{margin:14px 0 0;color:#8a857c;font-size:14px;letter-spacing:.08em}
 .st-ig{display:inline-block;margin-top:16px;font-size:13px;letter-spacing:.06em;color:#5f5b54;text-decoration:none;border-bottom:1px solid #d8d3ca}
 .st-grid{display:grid;grid-template-columns:1fr;gap:40px;max-width:1000px;margin:0 auto;padding:8px 28px 72px}
-@media(min-width:680px){.st-grid{grid-template-columns:repeat(auto-fit,minmax(260px,300px));justify-content:center}}
+@media(min-width:680px){.st-grid{display:flex;flex-wrap:wrap;justify-content:center}.st-grid .st-card{width:300px}}
 .st-card{position:relative}
 .st-link{display:block;color:inherit;text-decoration:none}
 .st-thumb{background:#f1efea;aspect-ratio:4/5;overflow:hidden;display:flex;justify-content:center;align-items:flex-start;padding:28px 28px 0}
