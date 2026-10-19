@@ -32,3 +32,5 @@ fieldset.dig{border:1.5px dashed #ccc;border-radius:12px;margin-top:14px}
 .yprice-line{margin-top:16px;font-size:16px}.yprice-line b{font-size:20px}.ysave{color:#0a8a3a;font-weight:700}
 .ywrap{margin-top:8px}.ywrap btn-yappy{display:none}.ywrap.wc-ok btn-yappy{display:block}.ywrap.wc-ok .yappy-fallback{display:none}
 .yappy-fallback{display:flex;align-items:center;justify-content:center;gap:10px;height:52px;border-radius:999px;background:#1677d6;color:#fff;font-weight:700;font-size:17px;text-decoration:none}
+
+.was{text-decoration:line-through;color:#888;font-size:18px;font-weight:500}.price .was{font-size:15px}.launch{display:inline-block;font-size:12px;font-weight:600;color:#0a7a3d;background:#e8f6ee;border-radius:999px;padding:2px 10px;margin:4px 0}.price .launch{display:block;text-align:right}.desc{max-width:340px;margin:8px auto 0}

@@ -7,7 +7,7 @@ const mailer = require('./mailer');
 const fees = require('./fees');
 const yappy = require('./adapters/' + (process.env.YAPPY || 'yappy-mock'));
 const app = express();
-app.use(express.urlencoded({ extended: true, limit: '30mb' })); app.use(express.json());
+app.use(express.urlencoded({ extended: true, limit: '30mb' })); app.use(express.json({ limit: '30mb' }));
 app.set('trust proxy', 'loopback');
 const clientIp = req => req.headers['cf-connecting-ip'] || req.ip;
 // Cabeceras de seguridad
@@ -100,12 +100,13 @@ function failHtml(p, sub, final) {
 // ---------- API ----------
 app.get('/api/projects', (req, res) => res.json(db.projects.map(({ webhook_secret, ...p }) => p)));
 app.post('/api/projects', async (req, res) => {
-  const { name, type, amount, free_amount, merchant_id, webhook_url, author, seller, file_b64 } = req.body;
+  const { name, type, amount, free_amount, merchant_id, webhook_url, author, seller, file_b64, description } = req.body;
+  const compare = req.body.compare_at_price ? Number(req.body.compare_at_price) : null;
   if (type === 'digital' && (!amount || !file_b64)) return res.status(400).json({ error: 'producto digital requiere precio y PDF' });
   if (!name || !TYPES[type] || !merchant_id) return res.status(400).json({ error: 'name, type y merchant_id son obligatorios' });
-  let slug = slugify(name); if (db.projects.find(p => p.slug === slug)) slug += '-' + crypto.randomBytes(2).toString('hex');
+  let slug = slugify(req.body.slug || name); if (db.projects.find(p => p.slug === slug)) slug += '-' + crypto.randomBytes(2).toString('hex');
   const p = { id: crypto.randomUUID(), slug, name, type, amount: amount ? Number(amount) : null,
-    free_amount: type !== 'digital' && (free_amount === 'on' || free_amount === true || !amount), card_fee_pct: req.body.card_fee_pct !== undefined && req.body.card_fee_pct !== '' ? Number(req.body.card_fee_pct) : null, card_fee_fixed: req.body.card_fee_fixed !== undefined && req.body.card_fee_fixed !== '' ? Number(req.body.card_fee_fixed) : null, author: author || null, seller: seller ? slugify(seller) : null, merchant_id, webhook_url: webhook_url || null,
+    free_amount: type !== 'digital' && (free_amount === 'on' || free_amount === true || !amount), card_fee_pct: req.body.card_fee_pct !== undefined && req.body.card_fee_pct !== '' ? Number(req.body.card_fee_pct) : null, card_fee_fixed: req.body.card_fee_fixed !== undefined && req.body.card_fee_fixed !== '' ? Number(req.body.card_fee_fixed) : null, author: author || null, description: description ? String(description).slice(0, 300) : null, compare_at_price: compare && amount && compare > Number(amount) ? compare : null, seller: seller ? slugify(seller) : null, merchant_id, webhook_url: webhook_url || null,
     webhook_secret: 'whsec_' + crypto.randomBytes(16).toString('hex'), created_at: new Date().toISOString() };
   if (type === 'digital') { try { p.file = await digital.saveProductFile(p.id, file_b64); p.preview = await digital.makePreview(p.file); } catch (e) { return res.status(400).json({ error: e.message }); } }
   db.projects.push(p); save();
@@ -217,7 +218,7 @@ app.get('/p/:slug', (req, res) => {
     document.getElementById('gpay')?.appendChild(c.createButton({buttonColor:'black',buttonType:'pay',buttonLocale:'es',buttonSizeMode:'fill',buttonRadius:12,onClick:e=>{e.preventDefault();payWith('google_pay')}}))}</script>
   <script async src="https://pay.google.com/gp/p/js/pay.js" onload="onGooglePayLoaded()"></script>` : '';
   res.send(layout('Pago', `<main class="co">
-  <div class="card center"><div class="concept">${esc(p.name)}</div>${showYappy ? '<div class="muted small">Con tarjeta</div>' : ''}<div class="big" id="total">${money(amt)}</div><div class="muted">${sub ? 'cada mes' : p.type === 'donation' ? 'donación' : p.type === 'digital' ? 'PDF · descarga inmediata' : 'pago único'}</div>${showYappy ? `<div class="yprice-line">Con Yappy <b id="yprice">${money(y.price)}</b> · <span class="ysave" id="ysave">ahorras ${money(y.savings)}</span></div>
+  <div class="card center"><div class="concept">${esc(p.name)}</div>${showYappy ? '<div class="muted small">Con tarjeta</div>' : ''}${p.compare_at_price && !p.free_amount ? `<div class="launch">Precio de lanzamiento</div><div class="was">${money(p.compare_at_price)}</div>` : ''}<div class="big" id="total">${money(amt)}</div><div class="muted">${sub ? 'cada mes' : p.type === 'donation' ? 'donación' : p.type === 'digital' ? 'PDF · descarga inmediata' : 'pago único'}</div>${p.description ? `<p class="muted small desc">${esc(p.description)}</p>` : ''}${showYappy ? `<div class="yprice-line">Con Yappy <b id="yprice">${money(y.price)}</b> · <span class="ysave" id="ysave">ahorras ${money(y.savings)}</span></div>
   <div class="ywrap"><btn-yappy id="ybtn" theme="blue" rounded="true"></btn-yappy>
   <a class="yappy-fallback" id="yappyLink" href="/p/${esc(p.slug)}/yappy?amount=${amt}">Pagar con <img src="/yappy-logo-blanco.svg" alt="Yappy" height="26"></a></div><p class="muted small">Con Yappy no hay comisión de tarjeta${fee.estimate ? ' (ahorro estimado)' : ''}.</p>` : ''}${p.preview ? `<img class="preview" src="/preview/${esc(p.slug)}.png" alt="Vista previa de la primera página">` : ''}</div>
   <form class="card" method="post" action="/p/${esc(p.slug)}/pay" autocomplete="on">
@@ -337,7 +338,7 @@ app.get('/tienda/:seller', (req, res) => {
   const items = db.projects.filter(p => p.seller === req.params.seller);
   if (!items.length) return res.status(404).send(layout('Tienda', '<main class="co"><div class="card center"><h1>Tienda no encontrada</h1></div></main>'));
   res.send(layout('Tienda', `<main class="co"><h1 class="center" style="margin:18px 0 4px">Catálogo</h1><p class="muted center">Toca un producto para comprarlo</p>
-  ${items.map(p => `<a class="card item" href="/p/${esc(p.slug)}"><div><div class="concept">${esc(p.name)}</div><div class="muted small">${p.type === 'digital' ? 'PDF · descarga inmediata' : TYPES[p.type]}</div></div><div class="price">${p.amount ? money(p.amount) : 'Libre'}</div></a>`).join('')}</main>`));
+  ${items.map(p => `<a class="card item" href="/p/${esc(p.slug)}"><div><div class="concept">${esc(p.name)}</div><div class="muted small">${p.type === 'digital' ? 'PDF · descarga inmediata' : TYPES[p.type]}</div></div><div class="price">${p.compare_at_price ? `<span class="was">${money(p.compare_at_price)}</span> ` : ''}${p.amount ? money(p.amount) : 'Libre'}${p.compare_at_price ? '<div class="launch">Precio de lanzamiento</div>' : ''}</div></a>`).join('')}</main>`));
 });
 
 // ---------- Cobros recurrentes: cobra vencidas; si falla reintenta cada 3 días; al 3er fallo cancela ----------
