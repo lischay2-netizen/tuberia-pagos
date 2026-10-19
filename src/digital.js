@@ -18,19 +18,26 @@ function createDownload(db, pay) {
   (db.downloads ||= []).push(d); return d;
 }
 async function watermark(file, { buyer, email, date, orderId, author }) {
-  const pdf = await PDFDocument.load(fs.readFileSync(path.join(FILES, file)));
+  // Cada página original se incrusta y la marca va encima: así las transformaciones internas del PDF
+  // (p. ej. MuseScore) nunca desplazan el pie de licencia ni la marca diagonal.
+  const src = await PDFDocument.load(fs.readFileSync(path.join(FILES, file)));
+  const pdf = await PDFDocument.create(), embs = await pdf.embedPdf(src, src.getPageIndices());
   const font = await pdf.embedFont(StandardFonts.Helvetica), bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const line1 = clean(`Licenciado a: ${buyer} <${email}> · ${date} · Pedido ${orderId}`);
   const line2 = clean(`Arreglo © ${author}. Licencia de uso personal. Prohibida su redistribución.`);
-  for (const pg of pdf.getPages()) {
-    const { width, height } = pg.getSize();
-    const fs1 = Math.min(8, (width - 40) / font.widthOfTextAtSize(line1, 1));
-    pg.drawRectangle({ x: 0, y: 0, width, height: 26, color: rgb(1, 1, 1), opacity: 0.85 });
-    pg.drawText(line1, { x: 20, y: 15, size: fs1, font, color: rgb(0.25, 0.25, 0.25) });
-    pg.drawText(line2, { x: 20, y: 6, size: Math.min(7, (width - 40) / bold.widthOfTextAtSize(line2, 1)), font: bold, color: rgb(0.25, 0.25, 0.25) });
-    const diag = clean(`${email} · ${orderId}`), size = 26;
-    pg.drawText(diag, { x: width / 2 - font.widthOfTextAtSize(diag, size) * 0.35, y: height / 2 - font.widthOfTextAtSize(diag, size) * 0.35,
-      size, font, color: rgb(0.6, 0.6, 0.6), opacity: 0.18, rotate: degrees(45) });
+  const ink = rgb(0.35, 0.35, 0.38);
+  for (const emb of embs) {
+    const pg = pdf.addPage([emb.width, emb.height]); pg.drawPage(emb);
+    const { width, height } = pg.getSize(), m = 28;
+    const s1 = Math.min(7.5, (width - 2 * m) / font.widthOfTextAtSize(line1, 1)), s2 = Math.min(6.5, (width - 2 * m) / bold.widthOfTextAtSize(line2, 1));
+    pg.drawRectangle({ x: 0, y: 0, width, height: 30, color: rgb(1, 1, 1), opacity: 0.9 });
+    pg.drawLine({ start: { x: m, y: 27 }, end: { x: width - m, y: 27 }, thickness: 0.4, color: rgb(0.75, 0.75, 0.78) });
+    pg.drawText(line1, { x: (width - font.widthOfTextAtSize(line1, s1)) / 2, y: 17, size: s1, font, color: ink });
+    pg.drawText(line2, { x: (width - bold.widthOfTextAtSize(line2, s2)) / 2, y: 8, size: s2, font: bold, color: ink });
+    // Marca diagonal centrada y tenue (gris).
+    const diag = clean(`${email} · ${orderId}`), size = 22, w = font.widthOfTextAtSize(diag, size), r = Math.PI / 4;
+    pg.drawText(diag, { x: width / 2 - (w / 2) * Math.cos(r) + (size / 3) * Math.sin(r), y: height / 2 - (w / 2) * Math.sin(r) - (size / 3) * Math.cos(r),
+      size, font, color: rgb(0.45, 0.45, 0.5), opacity: 0.1, rotate: degrees(45) });
   }
   pdf.setTitle(clean(`Licenciado a ${buyer} - Pedido ${orderId}`)); pdf.setAuthor(clean(author));
   return Buffer.from(await pdf.save());
