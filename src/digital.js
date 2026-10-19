@@ -19,7 +19,7 @@ function createDownload(db, pay) {
 }
 async function watermark(file, { buyer, email, date, orderId, author }) {
   // Cada página original se incrusta y la marca va encima: así las transformaciones internas del PDF
-  // (p. ej. MuseScore) nunca desplazan el pie de licencia ni la marca diagonal.
+  // (p. ej. MuseScore) nunca desplazan el pie de licencia.
   const src = await PDFDocument.load(fs.readFileSync(path.join(FILES, file)));
   const pdf = await PDFDocument.create(), embs = await pdf.embedPdf(src, src.getPageIndices());
   const font = await pdf.embedFont(StandardFonts.Helvetica), bold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -34,10 +34,6 @@ async function watermark(file, { buyer, email, date, orderId, author }) {
     pg.drawLine({ start: { x: m, y: 27 }, end: { x: width - m, y: 27 }, thickness: 0.4, color: rgb(0.75, 0.75, 0.78) });
     pg.drawText(line1, { x: (width - font.widthOfTextAtSize(line1, s1)) / 2, y: 17, size: s1, font, color: ink });
     pg.drawText(line2, { x: (width - bold.widthOfTextAtSize(line2, s2)) / 2, y: 8, size: s2, font: bold, color: ink });
-    // Marca diagonal centrada y tenue (gris).
-    const diag = clean(`${email} · ${orderId}`), size = 22, w = font.widthOfTextAtSize(diag, size), r = Math.PI / 4;
-    pg.drawText(diag, { x: width / 2 - (w / 2) * Math.cos(r) + (size / 3) * Math.sin(r), y: height / 2 - (w / 2) * Math.sin(r) - (size / 3) * Math.cos(r),
-      size, font, color: rgb(0.45, 0.45, 0.5), opacity: 0.1, rotate: degrees(45) });
   }
   pdf.setTitle(clean(`Licenciado a ${buyer} - Pedido ${orderId}`)); pdf.setAuthor(clean(author));
   return Buffer.from(await pdf.save());
